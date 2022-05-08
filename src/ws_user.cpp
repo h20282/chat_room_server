@@ -4,6 +4,8 @@
 #include <iostream>
 #include <map>
 
+#include "log.h"
+
 WsUser::WsUser(Connection con, std::string uuid,
                std::shared_ptr<RoomManager> manager)
         : con_(std::move(con)), uuid_(uuid), manager_(manager) {
@@ -38,19 +40,14 @@ WsUser::WsUser(Connection con, std::string uuid,
                     auto handler = handlers.at(type);
                     (this->*handler)(json);
                 } catch (nlohmann::json::exception e) {
-                    std::cout << e.what() << " when hand msg:`" << msg << "`"
-                              << std::endl;
+                    LOG_ERROR("{} when hand msg: `{}`", e.what(), msg);
                 } catch (std::exception e) {
-                    std::cout << e.what() << " when hand msg:`" << msg << "`"
-                              << std::endl;
+                    LOG_ERROR("{} when hand msg: `{}`", e.what(), msg);
                 }
             });
     con_->set_close_handler([this](websocketpp::connection_hdl) {
-        /*
-std::cout << __LINE__ << "close" << std::endl;
-this->OnLeaveRoom(
-        nlohmann::json{{"type", ReqType::kLeaveRoom}, {"roomId", ""}});
-        */
+        LOG_ERROR("close");
+        this->OnLeaveRoom({});
     });
 }
 
@@ -80,6 +77,7 @@ void WsUser::OnLogin(const nlohmann::json &msg) {
 }
 void WsUser::OnCreateRoom(const nlohmann::json &msg) {
     auto room_id = manager_->CreateRoom();
+    manager_->JoinRoom(shared_from_this(), room_id);
 
     nlohmann::json reply = {{"type", "reply.createRoom"}, {"roomId", room_id}};
     con_->send(reply.dump());
@@ -97,8 +95,23 @@ void WsUser::OnJoinRoom(const nlohmann::json &msg) {
                             {"msg", reply_msg}};
     con_->send(reply.dump());
 }
-void WsUser::OnLeaveRoom(const nlohmann::json &msg) {}
-void WsUser::OnGetRoomList(const nlohmann::json &msg) {}
+void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
+    bool last_one;
+    manager_->LeaveRoom(this->GetId(), last_one);
+    if (last_one) {
+        OnGetRoomList({});  // 主动向客户端同步房间列表
+    }
+}
+void WsUser::OnGetRoomList(const nlohmann::json &msg) {
+    nlohmann::json rooms;
+    for (auto room_info : manager_->GetRoomInfos()) {
+        rooms.push_back(nlohmann::json{{"roomId", room_info.room_id},
+                                       {"userNum", room_info.num_users},
+                                       {"ownerId", room_info.owner_id}});
+    }
+    nlohmann::json reply = {{"type", "reply.getRoomList"}, {"rooms", rooms}};
+    con_->send(reply.dump());
+}
 void WsUser::OnChangeOwner(const nlohmann::json &msg) {}
 void WsUser::OnKickUser(const nlohmann::json &msg) {}
 void WsUser::OnMute(const nlohmann::json &msg) {}

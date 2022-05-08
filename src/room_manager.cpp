@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+#include "log.h"
+
 std::string RoomManager::ErrorCode2Str(ErrorCode ec) {
     std::string arr[] = {"succ", "room not exist", "already in other room",
                          "not in any room"};
@@ -39,14 +41,13 @@ RoomManager::ErrorCode RoomManager::JoinRoom(const std::shared_ptr<IUser> user,
     if (GetUserBelong(user->GetId()).first != 0) {
         return ErrorCode::kAlreadyInOtherRooms;
     }
-    std::cout << "RoomManager::JoinRoom finish, user = " << user->GetId()
-              << ", id = " << id << std::endl;
+    LOG_INFO("finish, user: {}, id: {}", user->GetId(), id);
     rooms_[id].push_back(user);
     return ErrorCode::kSucc;
 }
 
 std::pair<RoomManager::ErrorCode, RoomManager::RoomId> RoomManager::LeaveRoom(
-        std::string user_id) {
+        std::string user_id, bool &is_last_one) {
     // TODO : 优化
     auto res = GetUserBelong(user_id);
     auto id = res.first;
@@ -54,8 +55,14 @@ std::pair<RoomManager::ErrorCode, RoomManager::RoomId> RoomManager::LeaveRoom(
     if (id == 0) { return std::make_pair(ErrorCode::kNotInRoom, id); }
 
     rooms_[id].erase(iter);
-    std::cout << "RoomManager::LeaveRoom finish, user = " << user_id
-              << ", room = " << id << std::endl;
+    // 最后一个人退出时销毁房间
+    is_last_one = false;
+    if (rooms_[id].size() == 0) {
+        rooms_.erase(id);
+        is_last_one = true;
+        // TODO : emit room changed
+    }
+    LOG_INFO("finish, user: {}, room: {}", user_id, id);
     return std::make_pair(ErrorCode::kSucc, id);
 }
 
@@ -66,9 +73,16 @@ std::vector<std::shared_ptr<IUser>> RoomManager::ListUser(RoomId id) {
 std::shared_ptr<IUser> RoomManager::GetOwner(RoomId id) {
     if (rooms_.find(id) == std::end(rooms_)) { return nullptr; }
     auto owner = rooms_[id].size() ? rooms_[id][0] : nullptr;
-    std::cout << "RoomManager::GetOwner finish, owner = " << owner->GetId()
-              << std::endl;
     return owner;
+}
+std::vector<RoomManager::RoomInfo> RoomManager::GetRoomInfos() {
+    std::vector<RoomManager::RoomInfo> ret;
+    for (auto &pair : rooms_) {
+        auto &room_id = pair.first;
+        auto num_users = pair.second.size();
+        ret.push_back({room_id, num_users, GetOwner(room_id)->GetId()});
+    }
+    return ret;
 }
 
 RoomManager::RoomId RoomManager::DoCreateRoom(RoomId id) {

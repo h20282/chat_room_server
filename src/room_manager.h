@@ -18,6 +18,12 @@ public:
         kNotInRoom = 3
     };
 
+    struct RoomInfo {
+        RoomId room_id;
+        std::size_t num_users;
+        std::string owner_id;
+    };
+
 public:
     RoomManager() = default;
     ~RoomManager() = default;
@@ -34,9 +40,11 @@ public:
 public:
     RoomId CreateRoom(RoomId room_id = 0);
     ErrorCode JoinRoom(const std::shared_ptr<IUser> user, RoomId id);
-    std::pair<ErrorCode, RoomId> LeaveRoom(std::string user_id);
+    std::pair<ErrorCode, RoomId> LeaveRoom(std::string user_id,
+                                           bool &is_last_one);
     std::vector<std::shared_ptr<IUser>> ListUser(RoomId id);
     std::shared_ptr<IUser> GetOwner(RoomId id);
+    std::vector<RoomInfo> GetRoomInfos();
 
 private:
     RoomId DoCreateRoom(RoomId id);
