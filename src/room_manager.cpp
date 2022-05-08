@@ -12,13 +12,9 @@ std::string RoomManager::ErrorCode2Str(ErrorCode ec) {
 
 RoomManager::RoomManager(RoomIdBuilder id_builder) : id_builder_(id_builder) {}
 
-RoomManager::RoomId RoomManager::CreateRoom(RoomId room_id) {
-    if (rooms_.find(room_id) == std::end(rooms_)) {
-        return DoCreateRoom(room_id);
-    }
-
+RoomManager::RoomId RoomManager::CreateRoom() {
     if (id_builder_ == nullptr) {
-        for (uint32_t id = 0;; ++id) {
+        for (uint32_t id = 100000;; ++id) {
             if (rooms_.find(id) == std::end(rooms_)) {
                 return DoCreateRoom(id);
             }
@@ -30,6 +26,14 @@ RoomManager::RoomId RoomManager::CreateRoom(RoomId room_id) {
                 return DoCreateRoom(id);
             }
         }
+    }
+}
+
+RoomManager::RoomId RoomManager::CreateRoom(RoomId room_id) {
+    if (rooms_.find(room_id) == std::end(rooms_)) {
+        return DoCreateRoom(room_id);
+    } else {
+        throw "room_id already in use";
     }
 }
 
@@ -70,6 +74,7 @@ std::vector<std::shared_ptr<IUser>> RoomManager::ListUser(RoomId id) {
     if (rooms_.find(id) == std::end(rooms_)) { return {}; }
     return rooms_[id];
 }
+
 std::shared_ptr<IUser> RoomManager::GetOwner(RoomId id) {
     if (rooms_.find(id) == std::end(rooms_)) { return nullptr; }
     auto owner = rooms_[id].size() ? rooms_[id][0] : nullptr;
@@ -80,7 +85,8 @@ std::vector<RoomManager::RoomInfo> RoomManager::GetRoomInfos() {
     for (auto &pair : rooms_) {
         auto &room_id = pair.first;
         auto num_users = pair.second.size();
-        ret.push_back({room_id, num_users, GetOwner(room_id)->GetId()});
+        auto owner = GetOwner(room_id);
+        if (owner) { ret.push_back({room_id, num_users, owner->GetId()}); }
     }
     return ret;
 }

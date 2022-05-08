@@ -70,6 +70,7 @@ void WsUser::OnLogin(const nlohmann::json &msg) {
     auto password = msg.at("password").get<std::string>();
     // TODO: mysql
 
+    this->uuid_ = username;
     auto result = true;
 
     nlohmann::json reply = {{"type", "reply.login"}, {"result", result}};
@@ -77,23 +78,38 @@ void WsUser::OnLogin(const nlohmann::json &msg) {
 }
 void WsUser::OnCreateRoom(const nlohmann::json &msg) {
     auto room_id = manager_->CreateRoom();
-    manager_->JoinRoom(shared_from_this(), room_id);
 
     nlohmann::json reply = {{"type", "reply.createRoom"}, {"roomId", room_id}};
     con_->send(reply.dump());
 }
 void WsUser::OnJoinRoom(const nlohmann::json &msg) {
-    auto room_id = msg.at("roomId").get<uint16_t>();
+    auto room_id = msg.at("roomId").get<uint32_t>();
     // TODO password
 
     auto ec = manager_->JoinRoom(shared_from_this(), room_id);
 
     std::string reply_msg = RoomManager::ErrorCode2Str(ec);
 
-    nlohmann::json reply = {{"type", "reply.joinRoom"},
-                            {"result", ec == RoomManager::ErrorCode::kSucc},
-                            {"msg", reply_msg}};
+    auto result = ec == RoomManager::ErrorCode::kSucc;
+    nlohmann::json reply = {
+            {"type", "reply.joinRoom"}, {"result", result}, {"msg", reply_msg}};
     con_->send(reply.dump());
+
+    if (result) {
+        nlohmann::json broadcast = {
+                {"type", "boardcast.createRoom"},
+                {"roomId", room_id},
+                {"ownerId", GetId()},
+        };
+        auto boardcast_msg = broadcast.dump();
+		auto room_infos = manager_->GetRoomInfos();
+        for (auto room_info : room_infos) {
+			auto users = manager_->ListUser(room_info.room_id);
+            for (auto user : users) {
+                dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
+            }
+        }
+    }
 }
 void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
     bool last_one;

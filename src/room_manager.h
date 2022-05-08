@@ -38,7 +38,8 @@ public:
     RoomManager(RoomIdBuilder id_builder);
 
 public:
-    RoomId CreateRoom(RoomId room_id = 0);
+    RoomId CreateRoom();
+    RoomId CreateRoom(RoomId room_id);
     ErrorCode JoinRoom(const std::shared_ptr<IUser> user, RoomId id);
     std::pair<ErrorCode, RoomId> LeaveRoom(std::string user_id,
                                            bool &is_last_one);
@@ -53,5 +54,5 @@ private:
 
 private:
     std::map<RoomId, std::vector<std::shared_ptr<IUser>>> rooms_;
-    RoomIdBuilder id_builder_;
+    RoomIdBuilder id_builder_{nullptr};
 };
