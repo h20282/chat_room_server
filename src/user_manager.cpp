@@ -1,5 +1,7 @@
 #include "user_manager.h"
 
+#include <algorithm>
+
 void UserManager::AddUser(std::shared_ptr<IUser> user) {
     users_.push_back(user);
 }

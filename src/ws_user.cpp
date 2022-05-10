@@ -5,6 +5,7 @@
 #include <map>
 
 #include "log.h"
+#include "sql.h"
 #include "user_manager.h"
 
 extern UserManager g_user_manager;
@@ -63,23 +64,43 @@ std::string WsUser::GetId() {
 void WsUser::OnRegist(const nlohmann::json &msg) {
     auto username = msg.at("userName").get<std::string>();
     auto password = msg.at("password").get<std::string>();
-    // TODO: mysql
 
-    auto result = true;
+    bool result = Regist(username, password);
+    std::string reply_msg = result ? "succ" : "username already exists";
 
-    nlohmann::json reply = {{"type", "reply.regist"}, {"result", result}};
+    nlohmann::json reply = {
+            {"type", "reply.regist"}, {"result", result}, {"msg", reply_msg}};
     con_->send(reply.dump());
 }
 void WsUser::OnLogin(const nlohmann::json &msg) {
     auto username = msg.at("userName").get<std::string>();
     auto password = msg.at("password").get<std::string>();
-    // TODO: mysql
 
+    std::string reply_msg = "succ";
+    bool already_online = false;
+    for (auto user : g_user_manager.ListAllUsers()) {
+        if (user->GetId() == username) {
+            already_online = true;
+            reply_msg = "re login";
+            break;
+        }
+    }
+
+    bool username_and_password_right = false;
+    if (!already_online) {
+        username_and_password_right = Login(username, password);
+        if (!username_and_password_right) {
+            reply_msg = "username or password error";
+        }
+    }
+
+    auto result = !already_online && username_and_password_right;
     this->uuid_ = username;
-    auto result = true;
 
-    nlohmann::json reply = {{"type", "reply.login"}, {"result", result}};
+    nlohmann::json reply = {
+            {"type", "reply.login"}, {"result", result}, {"msg", reply_msg}};
     con_->send(reply.dump());
+    if (!result) { con_->close({}, {}); }
 }
 void WsUser::OnCreateRoom(const nlohmann::json &msg) {
     auto room_id = manager_->CreateRoom();
