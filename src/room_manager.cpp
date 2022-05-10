@@ -50,13 +50,14 @@ RoomManager::ErrorCode RoomManager::JoinRoom(const std::shared_ptr<IUser> user,
     return ErrorCode::kSucc;
 }
 
-std::pair<RoomManager::ErrorCode, RoomManager::RoomId> RoomManager::LeaveRoom(
-        std::string user_id, bool &is_last_one) {
+RoomManager::ErrorCode RoomManager::LeaveRoom(std::string user_id,
+                                              bool &is_last_one,
+                                              RoomManager::RoomId &id) {
     // TODO : 优化
     auto res = GetUserBelong(user_id);
-    auto id = res.first;
+    id = res.first;
     auto iter = res.second;
-    if (id == 0) { return std::make_pair(ErrorCode::kNotInRoom, id); }
+    if (id == 0) { return ErrorCode::kNotInRoom; }
 
     rooms_[id].erase(iter);
     // 最后一个人退出时销毁房间
@@ -64,10 +65,9 @@ std::pair<RoomManager::ErrorCode, RoomManager::RoomId> RoomManager::LeaveRoom(
     if (rooms_[id].size() == 0) {
         rooms_.erase(id);
         is_last_one = true;
-        // TODO : emit room changed
     }
     LOG_INFO("finish, user: {}, room: {}", user_id, id);
-    return std::make_pair(ErrorCode::kSucc, id);
+    return ErrorCode::kSucc;
 }
 
 std::vector<std::shared_ptr<IUser>> RoomManager::ListUser(RoomId id) {

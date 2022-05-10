@@ -15,6 +15,7 @@ WsUser::WsUser(Connection con, std::string uuid,
                    websocketpp::server<websocketpp::config::asio>::message_ptr
                            message) {
                 auto msg = message->get_payload();
+                LOG_INFO("recv msg : `{}`", msg);
                 try {
 
                     auto json = nlohmann::json::parse(msg);
@@ -88,11 +89,11 @@ void WsUser::OnJoinRoom(const nlohmann::json &msg) {
 
     auto ec = manager_->JoinRoom(shared_from_this(), room_id);
 
-    std::string reply_msg = RoomManager::ErrorCode2Str(ec);
+    std::string error_msg = RoomManager::ErrorCode2Str(ec);
 
     auto result = ec == RoomManager::ErrorCode::kSucc;
     nlohmann::json reply = {
-            {"type", "reply.joinRoom"}, {"result", result}, {"msg", reply_msg}};
+            {"type", "reply.joinRoom"}, {"result", result}, {"msg", error_msg}};
     con_->send(reply.dump());
 
     if (result) {
@@ -102,9 +103,9 @@ void WsUser::OnJoinRoom(const nlohmann::json &msg) {
                 {"ownerId", GetId()},
         };
         auto boardcast_msg = broadcast.dump();
-		auto room_infos = manager_->GetRoomInfos();
+        auto room_infos = manager_->GetRoomInfos();
         for (auto room_info : room_infos) {
-			auto users = manager_->ListUser(room_info.room_id);
+            auto users = manager_->ListUser(room_info.room_id);
             for (auto user : users) {
                 dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
             }
@@ -113,9 +114,31 @@ void WsUser::OnJoinRoom(const nlohmann::json &msg) {
 }
 void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
     bool last_one;
-    manager_->LeaveRoom(this->GetId(), last_one);
+    RoomManager::RoomId room_id;
+    auto ec = manager_->LeaveRoom(this->GetId(), last_one, room_id);
+    LOG_INFO("user `{}` leaveRoom, is_last_one: {}, room_id: {}", this->GetId(),
+             last_one, room_id);
+
     if (last_one) {
         OnGetRoomList({});  // 主动向客户端同步房间列表
+    }
+
+    bool result = ec == RoomManager::ErrorCode::kSucc;
+    std::string error_msg = RoomManager::ErrorCode2Str(ec);
+    nlohmann::json reply = {{"type", "reply.leaveRoom"},
+                            {"result", result},
+                            {"msg", error_msg}};
+    con_->send(reply.dump());
+
+    nlohmann::json boardcast = {
+            {"type", "boardcast.leaveRoom"},
+            {"userId", this->GetId()},
+    };
+
+    auto boardcast_msg = boardcast.dump();
+    auto users = manager_->ListUser(room_id);
+    for (auto user : users) {
+        dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
     }
 }
 void WsUser::OnGetRoomList(const nlohmann::json &msg) {

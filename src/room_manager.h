@@ -41,8 +41,7 @@ public:
     RoomId CreateRoom();
     RoomId CreateRoom(RoomId room_id);
     ErrorCode JoinRoom(const std::shared_ptr<IUser> user, RoomId id);
-    std::pair<ErrorCode, RoomId> LeaveRoom(std::string user_id,
-                                           bool &is_last_one);
+    ErrorCode LeaveRoom(std::string user_id, bool &is_last_one, RoomId &id);
     std::vector<std::shared_ptr<IUser>> ListUser(RoomId id);
     std::shared_ptr<IUser> GetOwner(RoomId id);
     std::vector<RoomInfo> GetRoomInfos();
