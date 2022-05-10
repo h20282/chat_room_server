@@ -45,6 +45,7 @@ public:
     std::vector<std::shared_ptr<IUser>> ListUser(RoomId id);
     std::shared_ptr<IUser> GetOwner(RoomId id);
     std::vector<RoomInfo> GetRoomInfos();
+    RoomId GetRoomIdFromUser(std::string user_id);
 
 private:
     RoomId DoCreateRoom(RoomId id);

@@ -91,6 +91,10 @@ std::vector<RoomManager::RoomInfo> RoomManager::GetRoomInfos() {
     return ret;
 }
 
+RoomManager::RoomId RoomManager::GetRoomIdFromUser(std::string user_id) {
+    return GetUserBelong(user_id).first;
+}
+
 RoomManager::RoomId RoomManager::DoCreateRoom(RoomId id) {
     rooms_[id] = {};
     std::cout << "RoomManager::DoCreateRoom finish: id = " << id << std::endl;

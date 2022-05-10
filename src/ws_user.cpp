@@ -41,6 +41,7 @@ WsUser::WsUser(Connection con, std::string uuid,
                                      &WsUser::OnChangeOwner},
                                     {"request.kickUser", &WsUser::OnKickUser},
                                     {"request.mute", &WsUser::OnMute},
+                                    {"request.sendMsg", &WsUser::OnSendMsg},
                             };
                     auto handler = handlers.at(type);
                     (this->*handler)(json);
@@ -177,6 +178,22 @@ void WsUser::OnGetRoomList(const nlohmann::json &msg) {
 void WsUser::OnChangeOwner(const nlohmann::json &msg) {}
 void WsUser::OnKickUser(const nlohmann::json &msg) {}
 void WsUser::OnMute(const nlohmann::json &msg) {}
+
+void WsUser::OnSendMsg(const nlohmann::json &msg) {
+    auto user_msg = msg.at("text").get<std::string>();
+
+    auto room_id = manager_->GetRoomIdFromUser(uuid_);
+    auto users = manager_->ListUser(room_id);
+
+    for (auto user : users) {
+        nlohmann::json boardcast_msg{
+                {"type", "boardcast.sendMsg"},
+                {"user", uuid_},
+                {"msg", user_msg},
+        };
+        dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg.dump());
+    }
+}
 /*
 void WsUser::OnLogin(const nlohmann::json &msg) {
     nlohmann::json reply;

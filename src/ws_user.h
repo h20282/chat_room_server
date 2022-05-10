@@ -38,6 +38,8 @@ public:
     void OnChangeOwner(const nlohmann::json &msg);
     void OnKickUser(const nlohmann::json &msg);
     void OnMute(const nlohmann::json &msg);
+    void OnSendMsg(const nlohmann::json &msg);
+
 
 private:
     void DoBroadcast(RoomManager::RoomId room_id, const std::string &&msg);
