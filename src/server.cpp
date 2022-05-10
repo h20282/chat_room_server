@@ -12,10 +12,15 @@
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
 
+#include "user_manager.h"
+
 using WsServer = websocketpp::server<websocketpp::config::asio>;
 
 WsServer room_server;
 std::vector<std::shared_ptr<WsUser>> users;
+
+UserManager g_user_manager;
+
 auto manager = std::make_shared<RoomManager>();
 // void Send(websocketpp::connection_hdl hd) {
 //     room_server.get_con_from_hdl(hd);
@@ -32,7 +37,8 @@ void OnMessage(websocketpp::connection_hdl hd, WsServer::message_ptr msg_p) {
 
 void OnOpen(websocketpp::connection_hdl hd) {
     auto con = room_server.get_con_from_hdl(hd);
-    users.push_back(std::make_shared<WsUser>(con, "", manager));
+    auto new_user = std::make_shared<WsUser>(con, "", manager);
+    g_user_manager.AddUser(new_user);
     // WsUser(manager);
 }
 
@@ -42,6 +48,8 @@ int main() {
     room_server.set_open_handler(&OnOpen);
     room_server.set_access_channels(websocketpp::log::alevel::all);
     room_server.set_error_channels(websocketpp::log::elevel::all);
+
+    room_server.clear_access_channels(websocketpp::log::alevel::all);
 
     room_server.init_asio();
     room_server.listen(9001);

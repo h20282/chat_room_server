@@ -5,6 +5,9 @@
 #include <map>
 
 #include "log.h"
+#include "user_manager.h"
+
+extern UserManager g_user_manager;
 
 WsUser::WsUser(Connection con, std::string uuid,
                std::shared_ptr<RoomManager> manager)
@@ -48,6 +51,7 @@ WsUser::WsUser(Connection con, std::string uuid,
             });
     con_->set_close_handler([this](websocketpp::connection_hdl) {
         LOG_ERROR("close");
+        g_user_manager.RemoveUser(shared_from_this());
         this->OnLeaveRoom({});
     });
 }
@@ -82,6 +86,18 @@ void WsUser::OnCreateRoom(const nlohmann::json &msg) {
 
     nlohmann::json reply = {{"type", "reply.createRoom"}, {"roomId", room_id}};
     con_->send(reply.dump());
+
+    nlohmann::json broadcast = {
+            {"type", "boardcast.createRoom"},
+            {"roomId", room_id},
+            {"ownerId", GetId()},
+    };
+    auto boardcast_msg = broadcast.dump();
+    auto users = g_user_manager.ListAllUsers();
+    for (auto user : users) {
+        LOG_INFO("boardcast.createRoom to `{}`", user->GetId());
+        dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
+    }
 }
 void WsUser::OnJoinRoom(const nlohmann::json &msg) {
     auto room_id = msg.at("roomId").get<uint32_t>();
@@ -95,22 +111,6 @@ void WsUser::OnJoinRoom(const nlohmann::json &msg) {
     nlohmann::json reply = {
             {"type", "reply.joinRoom"}, {"result", result}, {"msg", error_msg}};
     con_->send(reply.dump());
-
-    if (result) {
-        nlohmann::json broadcast = {
-                {"type", "boardcast.createRoom"},
-                {"roomId", room_id},
-                {"ownerId", GetId()},
-        };
-        auto boardcast_msg = broadcast.dump();
-        auto room_infos = manager_->GetRoomInfos();
-        for (auto room_info : room_infos) {
-            auto users = manager_->ListUser(room_info.room_id);
-            for (auto user : users) {
-                dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
-            }
-        }
-    }
 }
 void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
     bool last_one;
@@ -118,10 +118,6 @@ void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
     auto ec = manager_->LeaveRoom(this->GetId(), last_one, room_id);
     LOG_INFO("user `{}` leaveRoom, is_last_one: {}, room_id: {}", this->GetId(),
              last_one, room_id);
-
-    if (last_one) {
-        OnGetRoomList({});  // 主动向客户端同步房间列表
-    }
 
     bool result = ec == RoomManager::ErrorCode::kSucc;
     std::string error_msg = RoomManager::ErrorCode2Str(ec);
@@ -139,6 +135,12 @@ void WsUser::OnLeaveRoom(const nlohmann::json &msg) {
     auto users = manager_->ListUser(room_id);
     for (auto user : users) {
         dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg);
+    }
+    if (last_one) {
+        for (auto user : users) {
+            dynamic_cast<WsUser *>(user.get())
+                    ->OnGetRoomList({});  // 主动向客户端同步房间列表
+        }
     }
 }
 void WsUser::OnGetRoomList(const nlohmann::json &msg) {
