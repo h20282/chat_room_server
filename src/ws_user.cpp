@@ -189,8 +189,9 @@ void WsUser::OnSendMsg(const nlohmann::json &msg) {
         nlohmann::json boardcast_msg{
                 {"type", "boardcast.sendMsg"},
                 {"user", uuid_},
-                {"msg", user_msg},
+                {"text", user_msg},
         };
+        LOG_INFO("sendMsg -> {}", user->GetId());
         dynamic_cast<WsUser *>(user.get())->con_->send(boardcast_msg.dump());
     }
 }
