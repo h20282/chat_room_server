@@ -93,4 +93,3 @@ bool Regist(string username, string password) {
         return false;
     }
 }
-

@@ -12,6 +12,7 @@
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
 
+#include "log.h"
 #include "user_manager.h"
 
 using WsServer = websocketpp::server<websocketpp::config::asio>;
@@ -43,6 +44,8 @@ void OnOpen(websocketpp::connection_hdl hd) {
 }
 
 int main() {
+
+    spdlog::set_pattern("[%Y-%m-%d %H:%M:%s %S.%e][%t][%l][%!:%#]:%v");
 
     room_server.set_message_handler(&OnMessage);
     room_server.set_open_handler(&OnOpen);
