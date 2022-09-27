@@ -1,5 +1,5 @@
 #include <fmt/format.h>
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include <iostream>
 #include <memory>
 #include <vector>
